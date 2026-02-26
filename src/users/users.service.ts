@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common'
 import { InjectRepository } from '@nestjs/typeorm'
 import { Repository } from 'typeorm'
-import { User, AuthProvider } from './entities/user.entity'
+import { User } from './entities/user.entity'
 
 @Injectable()
 export class UsersService {
@@ -23,20 +23,10 @@ export class UsersService {
   }
 
   createEmailUser(email: string, passwordHash: string): Promise<User> {
-    const user = this.usersRepo.create({
-      email,
-      passwordHash,
-      provider: AuthProvider.EMAIL,
-    })
-    return this.usersRepo.save(user)
+    return this.usersRepo.save(this.usersRepo.create({ email, passwordHash }))
   }
 
   createGoogleUser(email: string, googleId: string): Promise<User> {
-    const user = this.usersRepo.create({
-      email,
-      googleId,
-      provider: AuthProvider.GOOGLE,
-    })
-    return this.usersRepo.save(user)
+    return this.usersRepo.save(this.usersRepo.create({ email, googleId }))
   }
 }

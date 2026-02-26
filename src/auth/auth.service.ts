@@ -7,17 +7,16 @@ import {
 import { JwtService } from '@nestjs/jwt'
 import { ConfigService } from '@nestjs/config'
 import * as bcrypt from 'bcrypt'
-import * as crypto from 'crypto'
 import { OAuth2Client } from 'google-auth-library'
 
 import { UsersService } from '@/users/users.service'
 import { AuthenticationsService } from '@/authentications/authentications.service'
-import { AuthProvider } from '@/users/entities/user.entity'
+import { UserRole } from '@/users/entities/user.entity'
 import { RegisterEmailDto } from './dto/register-email.dto'
 import { LoginEmailDto } from './dto/login-email.dto'
-import { JwtAccessPayload, JwtRefreshPayload } from '@/common/types/jwt-payload.type'
+import { JwtPayload } from '@/common/types/jwt-payload.type'
 
-export type TokenPair = { accessToken: string; refreshToken: string }
+export type TokenPair = { access_token: string; refresh_token: string }
 
 @Injectable()
 export class AuthService {
@@ -45,21 +44,21 @@ export class AuthService {
     const passwordHash = await bcrypt.hash(dto.password, 12)
     const user = await this.usersService.createEmailUser(dto.email, passwordHash)
 
-    return this.createTokenPair(user.id, user.email)
+    return this.issueTokenPair(user.id, user.email, user.role)
   }
 
   // ─────────────────────────── Email login ───────────────────────────────────
 
   async loginWithEmail(dto: LoginEmailDto): Promise<TokenPair> {
     const user = await this.usersService.findByEmail(dto.email)
-    if (!user || user.provider !== AuthProvider.EMAIL || !user.passwordHash) {
+    if (!user || !user.passwordHash) {
       throw new UnauthorizedException('Email atau password salah')
     }
 
     const valid = await bcrypt.compare(dto.password, user.passwordHash)
     if (!valid) throw new UnauthorizedException('Email atau password salah')
 
-    return this.createTokenPair(user.id, user.email)
+    return this.issueTokenPair(user.id, user.email, user.role)
   }
 
   // ─────────────────────────── Google OAuth ──────────────────────────────────
@@ -89,61 +88,71 @@ export class AuthService {
       user = await this.usersService.createGoogleUser(email, googleId)
     }
 
-    return this.createTokenPair(user.id, user.email)
+    return this.issueTokenPair(user.id, user.email, user.role)
   }
 
   // ─────────────────────────── Refresh token ─────────────────────────────────
 
-  async refreshTokens(userId: string, authId: string, rawRefreshToken: string): Promise<TokenPair> {
-    const session = await this.authenticationsService.validateRefreshToken(authId, rawRefreshToken)
-    if (!session || session.userId !== userId) {
-      throw new UnauthorizedException('Sesi tidak valid')
-    }
+  async refreshTokens(
+    userId: string,
+    email: string,
+    role: UserRole,
+    rawRefreshToken: string,
+  ): Promise<TokenPair> {
+    const session = await this.authenticationsService.validateRefreshToken(userId, rawRefreshToken)
+    if (!session) throw new UnauthorizedException('Sesi tidak valid')
 
-    const user = await this.usersService.findById(userId)
-    if (!user) throw new UnauthorizedException('User tidak ditemukan')
+    // Rotate: update hash in-place before issuing new tokens
+    const newRefreshToken = this.signToken(
+      { sub: userId, email, role },
+      this.config.getOrThrow('JWT_REFRESH_SECRET'),
+      this.config.get('JWT_REFRESH_EXPIRES_IN', '7d'),
+    )
+    await this.authenticationsService.updateSessionToken(userId, newRefreshToken)
 
-    // Rotate: delete old session before issuing new tokens
-    await this.authenticationsService.deleteSession(authId)
+    const access_token = this.signToken(
+      { sub: userId, email, role },
+      this.config.getOrThrow('JWT_ACCESS_SECRET'),
+      this.config.get('JWT_ACCESS_EXPIRES_IN', '10m'),
+    )
 
-    return this.createTokenPair(user.id, user.email)
+    return { access_token, refresh_token: newRefreshToken }
   }
 
   // ─────────────────────────── Logout ────────────────────────────────────────
 
-  async logout(authId: string): Promise<void> {
-    await this.authenticationsService.deleteSession(authId)
+  async logout(userId: string): Promise<void> {
+    await this.authenticationsService.clearSession(userId)
   }
 
   // ─────────────────────────── Helpers ───────────────────────────────────────
 
   /**
-   * Issues an access + refresh token pair and persists the refresh token hash.
-   *
-   * Strategy: generate a UUID for the session upfront so we can embed it in
-   * the refresh token payload *before* writing to the DB. This avoids multiple
-   * round-trips.
+   * Issues an access + refresh token pair using the same JwtPayload shape
+   * and persists the hashed refresh token via upsert (single-device).
    */
-  private async createTokenPair(userId: string, email: string): Promise<TokenPair> {
-    // 1. Access token — short-lived, no DB interaction
-    const accessPayload: JwtAccessPayload = { sub: userId, email }
-    const accessToken = this.jwtService.sign(accessPayload, {
-      secret: this.config.getOrThrow('JWT_ACCESS_SECRET'),
-      expiresIn: this.config.get('JWT_ACCESS_EXPIRES_IN', '10m'),
-    })
+  private async issueTokenPair(userId: string, email: string, role: UserRole): Promise<TokenPair> {
+    const payload: JwtPayload = { sub: userId, email, role }
 
-    // 2. Pre-generate a session ID so we can embed it in the refresh payload
-    const sessionId = crypto.randomUUID()
+    const access_token = this.signToken(
+      payload,
+      this.config.getOrThrow('JWT_ACCESS_SECRET'),
+      this.config.get('JWT_ACCESS_EXPIRES_IN', '10m'),
+    )
 
-    const refreshPayload: JwtRefreshPayload = { sub: userId, authId: sessionId }
-    const refreshToken = this.jwtService.sign(refreshPayload, {
-      secret: this.config.getOrThrow('JWT_REFRESH_SECRET'),
-      expiresIn: this.config.get('JWT_REFRESH_EXPIRES_IN', '7d'),
-    })
+    const refresh_token = this.signToken(
+      payload,
+      this.config.getOrThrow('JWT_REFRESH_SECRET'),
+      this.config.get('JWT_REFRESH_EXPIRES_IN', '7d'),
+    )
 
-    // 3. Persist the hashed refresh token with the pre-generated ID
-    await this.authenticationsService.createSessionWithId(sessionId, userId, refreshToken)
+    // Upsert: creates a session or overwrites the existing one (single-device)
+    await this.authenticationsService.replaceSession(userId, refresh_token)
 
-    return { accessToken, refreshToken }
+    return { access_token, refresh_token }
+  }
+
+  private signToken(payload: JwtPayload, secret: string, expiresIn: string): string {
+    return this.jwtService.sign(payload, { secret, expiresIn })
   }
 }

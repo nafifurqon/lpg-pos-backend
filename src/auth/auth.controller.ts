@@ -13,7 +13,7 @@ import { GoogleAuthDto } from './dto/google-auth.dto'
 import { JwtAccessGuard } from './guards/jwt-access.guard'
 import { JwtRefreshGuard } from './guards/jwt-refresh.guard'
 import { CurrentUser } from './decorators/current-user.decorator'
-import { JwtAccessPayload, JwtRefreshPayload } from '@/common/types/jwt-payload.type'
+import { JwtPayload } from '@/common/types/jwt-payload.type'
 
 @Controller('auth')
 export class AuthController {
@@ -43,15 +43,15 @@ export class AuthController {
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtRefreshGuard)
-  refresh(@CurrentUser() user: JwtRefreshPayload & { rawToken: string }) {
-    return this.authService.refreshTokens(user.sub, user.authId, user.rawToken)
+  refresh(@CurrentUser() user: JwtPayload & { rawRefreshToken: string }) {
+    return this.authService.refreshTokens(user.sub, user.email, user.role, user.rawRefreshToken)
   }
 
   /** POST /auth/logout — Invalidate the current refresh token session */
   @Post('logout')
   @HttpCode(HttpStatus.NO_CONTENT)
   @UseGuards(JwtRefreshGuard)
-  async logout(@CurrentUser() user: JwtRefreshPayload) {
-    await this.authService.logout(user.authId)
+  async logout(@CurrentUser() user: JwtPayload) {
+    await this.authService.logout(user.sub)
   }
 }

@@ -1,9 +1,12 @@
-export type JwtAccessPayload = {
-  sub: string    // user.id (UUID)
-  email: string
-}
+import { UserRole } from '@/users/entities/user.entity'
 
-export type JwtRefreshPayload = {
-  sub: string    // user.id (UUID)
-  authId: string // authentication.id (UUID) — used to validate token is still active
+/**
+ * Single payload type embedded in both access and refresh JWTs.
+ * Using one type keeps access and refresh tokens structurally identical —
+ * only the secret and expiry differ.
+ */
+export type JwtPayload = {
+  sub: string      // user.id (UUID)
+  email: string
+  role: UserRole
 }

@@ -1,11 +1,11 @@
-import { IsEmail, IsString, MinLength, MaxLength } from 'class-validator'
+import { IsEmail, IsString, IsNotEmpty } from 'class-validator'
 
 export class LoginEmailDto {
-  @IsEmail()
+  @IsEmail({}, { message: 'Format email tidak valid' })
+  @IsNotEmpty({ message: 'Email wajib diisi' })
   email: string
 
   @IsString()
-  @MinLength(1)
-  @MaxLength(72)
+  @IsNotEmpty({ message: 'Password wajib diisi' })
   password: string
 }

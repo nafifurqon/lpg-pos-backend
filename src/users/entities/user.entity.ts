@@ -8,9 +8,8 @@ import {
 } from 'typeorm'
 import { Authentication } from '@/authentications/entities/authentication.entity'
 
-export enum AuthProvider {
-  EMAIL = 'email',
-  GOOGLE = 'google',
+export enum UserRole {
+  OWNER = 'owner',
 }
 
 @Entity('users')
@@ -21,27 +20,20 @@ export class User {
   @Column({ unique: true })
   email: string
 
-  /**
-   * Null for Google-only accounts (no password set).
-   * Stores bcrypt hash — never the raw password.
-   */
+  /** Null for Google-only accounts. Stores bcrypt hash — never the raw password. */
   @Column({ name: 'password_hash', nullable: true, type: 'text' })
   passwordHash: string | null
-
-  @Column({
-    type: 'enum',
-    enum: AuthProvider,
-    default: AuthProvider.EMAIL,
-  })
-  provider: AuthProvider
 
   @Column({ name: 'google_id', nullable: true, type: 'text' })
   googleId: string | null
 
-  @CreateDateColumn({ name: 'created_at' })
+  @Column({ type: 'enum', enum: UserRole, default: UserRole.OWNER })
+  role: UserRole
+
+  @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date
 
-  @UpdateDateColumn({ name: 'updated_at' })
+  @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
   updatedAt: Date
 
   @OneToMany(() => Authentication, (auth) => auth.user, { cascade: true })

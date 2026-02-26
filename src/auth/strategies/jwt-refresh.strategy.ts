@@ -3,7 +3,7 @@ import { PassportStrategy } from '@nestjs/passport'
 import { ExtractJwt, Strategy } from 'passport-jwt'
 import { Request } from 'express'
 import { ConfigService } from '@nestjs/config'
-import { JwtRefreshPayload } from '@/common/types/jwt-payload.type'
+import { JwtPayload } from '@/common/types/jwt-payload.type'
 
 @Injectable()
 export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh') {
@@ -20,9 +20,9 @@ export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh'
    * Passport calls validate() after the signature + expiry checks pass.
    * We attach the raw refresh token so AuthService can verify the stored hash.
    */
-  validate(req: Request, payload: JwtRefreshPayload) {
+  validate(req: Request, payload: JwtPayload): JwtPayload & { rawRefreshToken: string } {
     const authHeader = req.headers['authorization'] ?? ''
-    const rawToken = authHeader.replace('Bearer ', '').trim()
-    return { ...payload, rawToken }
+    const rawRefreshToken = authHeader.replace('Bearer ', '').trim()
+    return { ...payload, rawRefreshToken }
   }
 }

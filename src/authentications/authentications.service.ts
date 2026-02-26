@@ -11,40 +11,47 @@ export class AuthenticationsService {
     private readonly authRepo: Repository<Authentication>,
   ) {}
 
-  async createSession(userId: string, refreshToken: string): Promise<Authentication> {
+  /**
+   * Upsert session: insert a new row if the user has no session,
+   * or update the hash if one already exists.
+   * The UNIQUE constraint on user_id enables the ON CONFLICT path,
+   * naturally enforcing single-device login.
+   *
+   * Why hash the refresh token?
+   * A refresh token grants long-lived access (7 days) — similar to a password.
+   * Hashing means a leaked DB cannot be used to forge new access tokens directly.
+   */
+  async replaceSession(userId: string, refreshToken: string): Promise<void> {
     const refreshTokenHash = await bcrypt.hash(refreshToken, 12)
-    const session = this.authRepo.create({ userId, refreshTokenHash })
-    return this.authRepo.save(session)
-  }
-
-  /** Insert a session with a pre-generated ID (used to embed the ID in the JWT before DB write). */
-  async createSessionWithId(id: string, userId: string, refreshToken: string): Promise<void> {
-    const refreshTokenHash = await bcrypt.hash(refreshToken, 12)
-    await this.authRepo.save(this.authRepo.create({ id, userId, refreshTokenHash }))
-  }
-
-  async findById(id: string): Promise<Authentication | null> {
-    return this.authRepo.findOneBy({ id })
+    await this.authRepo.upsert(
+      { userId, refreshTokenHash },
+      { conflictPaths: ['userId'] },
+    )
   }
 
   /**
-   * Validate refresh token by checking the bcrypt hash stored in the session.
-   * Returns the session if valid, null otherwise.
+   * Validate the presented refresh token against the stored bcrypt hash.
+   * Returns null if no session exists, if the session is logged out (hash is null),
+   * or if the token doesn't match.
    */
-  async validateRefreshToken(authId: string, refreshToken: string): Promise<Authentication | null> {
-    const session = await this.authRepo.findOneBy({ id: authId })
-    if (!session) return null
+  async validateRefreshToken(userId: string, refreshToken: string): Promise<Authentication | null> {
+    const session = await this.authRepo.findOneBy({ userId })
+    if (!session || !session.refreshTokenHash) return null
     const valid = await bcrypt.compare(refreshToken, session.refreshTokenHash)
     return valid ? session : null
   }
 
-  /** Delete a specific session (logout from one device). */
-  async deleteSession(authId: string): Promise<void> {
-    await this.authRepo.delete({ id: authId })
+  /** Update hash in-place after a successful token refresh. */
+  async updateSessionToken(userId: string, newRefreshToken: string): Promise<void> {
+    const refreshTokenHash = await bcrypt.hash(newRefreshToken, 12)
+    await this.authRepo.update({ userId }, { refreshTokenHash })
   }
 
-  /** Delete all sessions for a user (logout from all devices). */
-  async deleteAllSessions(userId: string): Promise<void> {
-    await this.authRepo.delete({ userId })
+  /**
+   * Logout: set hash to null and stamp updated_at.
+   * Row is kept for audit — a non-null updated_at with null hash = logged out.
+   */
+  async clearSession(userId: string): Promise<void> {
+    await this.authRepo.update({ userId }, { refreshTokenHash: null })
   }
 }
