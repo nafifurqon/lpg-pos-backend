@@ -1,0 +1,32 @@
+# PostgreSQL service for LPG POS
+# Only the database runs in Docker. The backend NestJS service runs manually.
+#
+# Commands:
+#   Start:   docker compose up -d
+#   Stop:    docker compose down
+#   Destroy: docker compose down -v   ← WARNING: deletes all data
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: lpg_pos_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-lpg_pos_db}
+      POSTGRES_USER: ${DB_USERNAME:-lpg_pos_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-lpg_pos_password}
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      # Named volume — data persists across container restarts and removals.
+      # Only destroyed explicitly with: docker compose down -v
+      - lpg_pos_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-lpg_pos_user} -d ${DB_DATABASE:-lpg_pos_db}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  lpg_pos_pgdata:
+    driver: local

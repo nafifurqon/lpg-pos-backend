@@ -1,0 +1,42 @@
+import { Injectable } from '@nestjs/common'
+import { InjectRepository } from '@nestjs/typeorm'
+import { Repository } from 'typeorm'
+import { User, AuthProvider } from './entities/user.entity'
+
+@Injectable()
+export class UsersService {
+  constructor(
+    @InjectRepository(User)
+    private readonly usersRepo: Repository<User>,
+  ) {}
+
+  findById(id: string): Promise<User | null> {
+    return this.usersRepo.findOneBy({ id })
+  }
+
+  findByEmail(email: string): Promise<User | null> {
+    return this.usersRepo.findOneBy({ email })
+  }
+
+  findByGoogleId(googleId: string): Promise<User | null> {
+    return this.usersRepo.findOneBy({ googleId })
+  }
+
+  createEmailUser(email: string, passwordHash: string): Promise<User> {
+    const user = this.usersRepo.create({
+      email,
+      passwordHash,
+      provider: AuthProvider.EMAIL,
+    })
+    return this.usersRepo.save(user)
+  }
+
+  createGoogleUser(email: string, googleId: string): Promise<User> {
+    const user = this.usersRepo.create({
+      email,
+      googleId,
+      provider: AuthProvider.GOOGLE,
+    })
+    return this.usersRepo.save(user)
+  }
+}
