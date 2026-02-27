@@ -99,7 +99,7 @@
 |---|---|
 | **ID** | BE-05 |
 | **Type** | Story |
-| **Status** | To Do |
+| **Status** | Done |
 | **Feature** | 01-register-login |
 
 **As an** authenticated owner,
@@ -107,11 +107,11 @@
 **so that** I can start using the POS system.
 
 **Acceptance Criteria:**
-- [ ] `POST /shops` requires valid access token
-- [ ] Validates: `name` (required, max 100), `address` (required, max 500), `registrationNumber` (optional, max 50)
-- [ ] Returns `201` with the created shop object
-- [ ] Returns `401` if token is missing or invalid
-- [ ] An owner can only register one shop (enforce uniqueness by `owner_id`)
+- [x] `POST /shops` requires valid access token
+- [x] Validates: `name` (required, max 100), `address` (required, max 500), `registrationNumber` (optional, max 50)
+- [x] Returns `201` with the created shop object
+- [x] Returns `401` if token is missing or invalid
+- [x] An owner can only register one shop (enforce uniqueness by `owner_id`)
 
 ---
 
