@@ -1,7 +1,9 @@
 # Implementation Plan — [Feature Name]
 
-> Copy this template and fill in each section before starting work.  
-> File naming: `NN-<feature-slug>.md` (e.g. `02-shop-inventory.md`)
+> Copy this template and fill in each section before starting work.
+> File naming: `<YYYY-MM-DD HH.MM.SS>-<TYPE>-<Title>-<TICKET-ID>.md`
+> Example: `2026-02-27 10.00.00-TASK-Standardize Response Format-LPG-1.md`
+> Ticket ID: `LPG-<incremental number>` — must match the corresponding story/task file
 
 ---
 

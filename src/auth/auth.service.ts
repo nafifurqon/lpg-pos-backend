@@ -38,6 +38,7 @@ export class AuthService {
   // ─────────────────────────── Email register ────────────────────────────────
 
   async registerWithEmail(dto: RegisterEmailDto): Promise<TokenPair> {
+
     const existing = await this.usersService.findByEmail(dto.email)
     if (existing) throw new ConflictException('Email sudah terdaftar')
 
