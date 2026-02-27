@@ -5,8 +5,10 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   OneToMany,
+  OneToOne,
 } from 'typeorm'
 import { Authentication } from '@/authentications/entities/authentication.entity'
+import { Shop } from '@/shops/entities/shop.entity'
 
 export enum UserRole {
   OWNER = 'owner',
@@ -38,4 +40,7 @@ export class User {
 
   @OneToMany(() => Authentication, (auth) => auth.user, { cascade: true })
   authentications: Authentication[]
+
+  @OneToOne(() => Shop, (shop) => shop.owner)
+  shop: Shop
 }
