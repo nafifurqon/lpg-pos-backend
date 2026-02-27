@@ -1,8 +1,9 @@
 import { IsEmail, IsString, IsNotEmpty, MinLength, Matches } from 'class-validator'
 
 export class RegisterEmailDto {
-  @IsEmail({}, { message: 'Format email tidak valid' })
+  @IsString()
   @IsNotEmpty({ message: 'Email wajib diisi' })
+  @IsEmail({}, { message: 'Format email tidak valid' })
   email: string
 
   /**

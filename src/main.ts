@@ -1,7 +1,10 @@
 import 'reflect-metadata'
 import { NestFactory } from '@nestjs/core'
 import { ValidationPipe } from '@nestjs/common'
+import { Reflector } from '@nestjs/core'
 import { AppModule } from './app.module'
+import { HttpExceptionFilter } from './common/filters/http-exception.filter'
+import { TransformInterceptor } from './common/interceptors/transform.interceptor'
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule)
@@ -14,6 +17,13 @@ async function bootstrap() {
       transform: true,       // Auto-transform payload types
     })
   )
+
+  // Global exception filter — normalizes all HttpException errors to { messages: string[], error: string }
+  app.useGlobalFilters(new HttpExceptionFilter())
+
+  // Global interceptor — wraps all success responses in { message, result }
+  const reflector = app.get(Reflector)
+  app.useGlobalInterceptors(new TransformInterceptor(reflector))
 
   // CORS — allow frontend dev server
   app.enableCors({
