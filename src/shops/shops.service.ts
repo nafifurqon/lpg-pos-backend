@@ -24,4 +24,8 @@ export class ShopsService {
 
     return this.shopsRepo.save(shop)
   }
+
+  findByOwnerId(ownerId: string): Promise<Shop | null> {
+    return this.shopsRepo.findOneBy({ ownerId })
+  }
 }

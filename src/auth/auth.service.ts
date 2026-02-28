@@ -17,6 +17,7 @@ import { LoginEmailDto } from './dto/login-email.dto'
 import { JwtPayload } from '@/common/types/jwt-payload.type'
 
 export type TokenPair = { access_token: string; refresh_token: string }
+export type AuthResult = TokenPair & { user: { id: string; email: string; role: UserRole } }
 
 @Injectable()
 export class AuthService {
@@ -37,7 +38,7 @@ export class AuthService {
 
   // ─────────────────────────── Email register ────────────────────────────────
 
-  async registerWithEmail(dto: RegisterEmailDto): Promise<TokenPair> {
+  async registerWithEmail(dto: RegisterEmailDto): Promise<AuthResult> {
 
     const existing = await this.usersService.findByEmail(dto.email)
     if (existing) throw new ConflictException('Email sudah terdaftar')
@@ -50,7 +51,7 @@ export class AuthService {
 
   // ─────────────────────────── Email login ───────────────────────────────────
 
-  async loginWithEmail(dto: LoginEmailDto): Promise<TokenPair> {
+  async loginWithEmail(dto: LoginEmailDto): Promise<AuthResult> {
     const user = await this.usersService.findByEmail(dto.email)
     if (!user || !user.passwordHash) {
       throw new UnauthorizedException('Email atau password salah')
@@ -64,7 +65,7 @@ export class AuthService {
 
   // ─────────────────────────── Google OAuth ──────────────────────────────────
 
-  async loginWithGoogle(code: string): Promise<TokenPair> {
+  async loginWithGoogle(code: string): Promise<AuthResult> {
     const { tokens } = await this.googleClient.getToken(code).catch(() => {
       throw new UnauthorizedException('Kode Google tidak valid')
     })
@@ -99,7 +100,7 @@ export class AuthService {
     email: string,
     role: UserRole,
     rawRefreshToken: string,
-  ): Promise<TokenPair> {
+  ): Promise<AuthResult> {
     const session = await this.authenticationsService.validateRefreshToken(userId, rawRefreshToken)
     if (!session) throw new UnauthorizedException('Sesi tidak valid')
 
@@ -117,7 +118,7 @@ export class AuthService {
       this.config.get('JWT_ACCESS_EXPIRES_IN', '10m'),
     )
 
-    return { access_token, refresh_token: newRefreshToken }
+    return { access_token, refresh_token: newRefreshToken, user: { id: userId, email, role } }
   }
 
   // ─────────────────────────── Logout ────────────────────────────────────────
@@ -132,7 +133,7 @@ export class AuthService {
    * Issues an access + refresh token pair using the same JwtPayload shape
    * and persists the hashed refresh token via upsert (single-device).
    */
-  private async issueTokenPair(userId: string, email: string, role: UserRole): Promise<TokenPair> {
+  private async issueTokenPair(userId: string, email: string, role: UserRole): Promise<AuthResult> {
     const payload: JwtPayload = { sub: userId, email, role }
 
     const access_token = this.signToken(
@@ -150,7 +151,7 @@ export class AuthService {
     // Upsert: creates a session or overwrites the existing one (single-device)
     await this.authenticationsService.replaceSession(userId, refresh_token)
 
-    return { access_token, refresh_token }
+    return { access_token, refresh_token, user: { id: userId, email, role } }
   }
 
   private signToken(payload: JwtPayload, secret: string, expiresIn: string): string {
