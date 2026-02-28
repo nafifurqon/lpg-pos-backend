@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, HttpCode, HttpStatus } from '@nestjs/common'
+import { Controller, Post, Get, Body, UseGuards, HttpCode, HttpStatus } from '@nestjs/common'
 import { ShopsService } from './shops.service'
 import { CreateShopDto } from './dto/create-shop.dto'
 import { JwtAccessGuard } from '@/auth/guards/jwt-access.guard'
@@ -17,5 +17,12 @@ export class ShopsController {
   @ResponseMessage('Toko berhasil didaftarkan')
   createShop(@CurrentUser() user: JwtPayload, @Body() dto: CreateShopDto) {
     return this.shopsService.createShop(user.sub, dto)
+  }
+
+  /** GET /shops/mine — Return the authenticated owner's shop, or null if none */
+  @Get('mine')
+  @ResponseMessage('Berhasil mengambil data toko')
+  getMyShop(@CurrentUser() user: JwtPayload) {
+    return this.shopsService.findByOwnerId(user.sub)
   }
 }
