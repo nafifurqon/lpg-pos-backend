@@ -1,6 +1,8 @@
 import { IsEmail, IsString, IsNotEmpty, MinLength, Matches } from 'class-validator'
+import { ApiProperty } from '@nestjs/swagger'
 
 export class RegisterEmailDto {
+  @ApiProperty({ example: 'user@example.com', description: 'Alamat email pengguna' })
   @IsString()
   @IsNotEmpty({ message: 'Email wajib diisi' })
   @IsEmail({}, { message: 'Format email tidak valid' })
@@ -14,6 +16,10 @@ export class RegisterEmailDto {
    * - At least one number
    * - At least one special character
    */
+  @ApiProperty({
+    example: 'Secret@123',
+    description: 'Password minimal 8 karakter, mengandung huruf kapital, huruf kecil, angka, dan karakter spesial',
+  })
   @IsString()
   @IsNotEmpty({ message: 'Password wajib diisi' })
   @MinLength(8, { message: 'Password minimal 8 karakter' })
